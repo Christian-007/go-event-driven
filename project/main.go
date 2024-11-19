@@ -25,6 +25,8 @@ type TicketsConfirmationRequest struct {
 
 func main() {
 	log.Init(logrus.InfoLevel)
+	
+	watermillLogger := watermill.NewStdLogger(false, false)
 
 	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), nil)
 	if err != nil {
@@ -33,8 +35,6 @@ func main() {
 
 	receiptsClient := NewReceiptsClient(clients)
 	spreadsheetsClient := NewSpreadsheetsClient(clients)
-
-	watermillLogger := watermill.NewStdLogger(false, false)
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr: os.Getenv("REDIS_ADDR"),
@@ -65,9 +65,6 @@ func main() {
 		fmt.Println("Error creating spreadSheetSub:", err)
 		panic(err)
 	}
-
-	go processIssueReceipt(issueReceiptSub, receiptsClient)
-	go processAppendToTracker(appendToTrackerSub, spreadsheetsClient)
 	
 	e := commonHTTP.NewEcho()
 	e.POST("/tickets-confirmation", func(c echo.Context) error {
@@ -95,49 +92,55 @@ func main() {
 		return c.NoContent(http.StatusOK)
 	})
 
+	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
+	if err != nil {
+		panic(err)
+	}
+
+	router.AddNoPublisherHandler(
+		"issue_receipt",
+		IssueReceiptTopic,
+		issueReceiptSub,
+		func(message *message.Message) error {
+			ticketID := string(message.Payload)
+			err := receiptsClient.IssueReceipt(message.Context(), ticketID)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to issue receipt")
+				return err
+			} 
+			
+			return nil
+		},
+	)
+
+	router.AddNoPublisherHandler(
+		"print_ticket",
+		AppendToTrackerTopic,
+		appendToTrackerSub,
+		func(message *message.Message) error {
+			ticketID := string(message.Payload)
+			err := spreadsheetsClient.AppendRow(message.Context(), "tickets-to-print", []string{ticketID})
+			if err != nil {
+				logrus.WithError(err).Error("Failed to append to tracker")
+				return err
+			}
+			
+			return nil
+		},
+	)
+
 	logrus.Info("Server starting...")
+
+	go func ()  {
+		err := router.Run(context.Background())
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	err = e.Start(":8080")
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)
-	}
-}
-
-func processIssueReceipt(sub message.Subscriber, receiptsClient ReceiptsClient) {
-	messages, err := sub.Subscribe(context.Background(), IssueReceiptTopic)
-	if err != nil {
-		fmt.Printf("Error subscribing to %v: %v", IssueReceiptTopic, err)
-		panic(err)
-	}
-
-	for message := range messages {
-		ticketID := string(message.Payload)
-		err := receiptsClient.IssueReceipt(message.Context(), ticketID)
-		if err != nil {
-			logrus.WithError(err).Error("Failed to issue receipt")
-			message.Nack()
-		} else {
-			message.Ack()
-		}
-	}
-}
-
-func processAppendToTracker(sub message.Subscriber, spreadsheetClient SpreadsheetsClient) {
-	messages, err := sub.Subscribe(context.Background(), AppendToTrackerTopic)
-	if err != nil {
-		fmt.Printf("Error subscribing to %v: %v", AppendToTrackerTopic, err)
-		panic(err)
-	}
-
-	for message := range messages {
-		ticketID := string(message.Payload)
-		err := spreadsheetClient.AppendRow(message.Context(), "tickets-to-print", []string{ticketID})
-		if err != nil {
-			logrus.WithError(err).Error("Failed to append to tracker")
-			message.Nack()
-		} else {
-			message.Ack()
-		}
 	}
 }
 
