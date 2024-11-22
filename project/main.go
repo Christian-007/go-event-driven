@@ -94,6 +94,10 @@ func main() {
 		return c.NoContent(http.StatusOK)
 	})
 
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
 	if err != nil {
 		panic(err)
