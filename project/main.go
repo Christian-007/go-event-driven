@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,8 +22,37 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type TicketsConfirmationRequest struct {
-	Tickets []string `json:"tickets"`
+
+type TicketsStatusRequest struct {
+	Tickets []TicketStatus `json:"tickets"`
+}
+
+type TicketStatus struct {
+	TicketID		string	`json:"ticket_id"`
+	Status 			string	`json:"status"`
+	Price			Money	`json:"price"`
+	CustomerEmail 	string	`json:"customer_email"`
+}
+
+type Money struct {
+	Amount 		string `json:"amount"`
+	Currency 	string `json:"currency"`
+}
+
+type IssueReceiptPayload struct {
+	TicketID	string	`json:"ticket_id"`
+	Price		Money	`json:"price"`
+}
+
+type AppendToTrackerPayload struct {
+	TicketID		string	`json:"ticket_id"`
+	CustomerEmail 	string	`json:"customer_email"`
+	Price			Money	`json:"price"`
+}
+
+type IssueReceiptRequest struct {
+	TicketID string
+	Price    Money
 }
 
 func main() {
@@ -69,22 +99,49 @@ func main() {
 	}
 	
 	e := commonHTTP.NewEcho()
-	e.POST("/tickets-confirmation", func(c echo.Context) error {
-		var request TicketsConfirmationRequest
+
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
+	e.POST("/tickets-status", func(c echo.Context) error {
+		var request TicketsStatusRequest
 		err := c.Bind(&request)
 		if err != nil {
 			return err
 		}
 
 		for _, ticket := range request.Tickets {
-			message := message.NewMessage(watermill.NewUUID(), []byte(ticket))
-			err := publisher.Publish(IssueReceiptTopic, message)
+			issueReceiptPayload := IssueReceiptPayload{
+				TicketID: ticket.TicketID,
+				Price: ticket.Price,
+			}
+			issueReceiptJson, err := json.Marshal(issueReceiptPayload)
+			if err != nil {
+				fmt.Println("Error marshaling issueReceipt:", err)
+				return err
+			}
+
+			issueReceiptMsg := message.NewMessage(watermill.NewUUID(), issueReceiptJson)
+			err = publisher.Publish(IssueReceiptTopic, issueReceiptMsg)
 			if err != nil {
 				fmt.Println("Error publishing issueReceiptMsg:", err)
 				return err
 			}
 
-			err = publisher.Publish(AppendToTrackerTopic, message)
+			appendToTrackerPayload := AppendToTrackerPayload{
+				TicketID: ticket.TicketID,
+				CustomerEmail: ticket.CustomerEmail,
+				Price: ticket.Price,
+			}
+			appendToTrackerJson, err := json.Marshal(appendToTrackerPayload)
+			if err != nil {
+				fmt.Println("Error marshaling appendToTracker:", err)
+				return err
+			}
+
+			appendToTrackerMsg := message.NewMessage(watermill.NewUUID(), appendToTrackerJson)
+			err = publisher.Publish(AppendToTrackerTopic, appendToTrackerMsg)
 			if err != nil {
 				fmt.Println("Error publishing appendToTrackerMsg:", err)
 				return err
@@ -92,10 +149,6 @@ func main() {
 		}
 
 		return c.NoContent(http.StatusOK)
-	})
-
-	e.GET("/health", func(c echo.Context) error {
-		return c.String(http.StatusOK, "ok")
 	})
 
 	router, err := message.NewRouter(message.RouterConfig{}, watermillLogger)
@@ -108,14 +161,19 @@ func main() {
 		IssueReceiptTopic,
 		issueReceiptSub,
 		func(message *message.Message) error {
-			ticketID := string(message.Payload)
-			err := receiptsClient.IssueReceipt(message.Context(), ticketID)
+			var payload IssueReceiptPayload
+			err := json.Unmarshal(message.Payload, &payload)
 			if err != nil {
-				logrus.WithError(err).Error("Failed to issue receipt")
 				return err
-			} 
-			
-			return nil
+			}
+
+			return receiptsClient.IssueReceipt(message.Context(), IssueReceiptRequest{
+				TicketID: payload.TicketID,
+				Price: Money{
+					Amount: payload.Price.Amount,
+					Currency: payload.Price.Currency,
+				},
+			})
 		},
 	)
 
@@ -124,14 +182,17 @@ func main() {
 		AppendToTrackerTopic,
 		appendToTrackerSub,
 		func(message *message.Message) error {
-			ticketID := string(message.Payload)
-			err := spreadsheetsClient.AppendRow(message.Context(), "tickets-to-print", []string{ticketID})
+			var payload AppendToTrackerPayload
+			err := json.Unmarshal(message.Payload, &payload)
 			if err != nil {
-				logrus.WithError(err).Error("Failed to append to tracker")
 				return err
 			}
-			
-			return nil
+
+			return spreadsheetsClient.AppendRow(
+				message.Context(),
+				"tickets-to-print",
+				[]string{payload.TicketID, payload.CustomerEmail, payload.Price.Amount, payload.Price.Currency},
+			)
 		},
 	)
 
@@ -181,9 +242,13 @@ func NewReceiptsClient(clients *clients.Clients) ReceiptsClient {
 	}
 }
 
-func (c ReceiptsClient) IssueReceipt(ctx context.Context, ticketID string) error {
+func (c ReceiptsClient) IssueReceipt(ctx context.Context, request IssueReceiptRequest) error {
 	body := receipts.PutReceiptsJSONRequestBody{
-		TicketId: ticketID,
+		TicketId: request.TicketID,
+		Price: receipts.Money{
+			MoneyAmount: request.Price.Amount,
+			MoneyCurrency: request.Price.Currency,
+		},
 	}
 
 	receiptsResp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, body)
