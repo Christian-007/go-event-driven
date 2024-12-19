@@ -1,5 +1,7 @@
 go 1.22.2
 
+// toolchain go1.23.4
+
 use (
 	./02-async/01-goroutines
 	./03-message-broker/02-publishing-messages
@@ -10,5 +12,6 @@ use (
 	./04-router/02-no-publisher-handlers
 	./05-events/02-marshalling
 	./05-events/03-headers
+	./06-middlewares/01-add-middleware
 	./project
 )
