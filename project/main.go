@@ -57,29 +57,29 @@ type IssueReceiptRequest struct {
 }
 
 type Header struct {
-	ID			string `json:"id"`
-	PublishedAt	time.Time `json:"published_at"`
+	ID          string    `json:"id"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 func NewHeader(eventName string) Header {
 	return Header{
-		ID: uuid.NewString(),
+		ID:          uuid.NewString(),
 		PublishedAt: time.Now().UTC(),
 	}
 }
 
 type TicketBookingConfirmed struct {
-	Header Header `json:"header"`
-	TicketID string `json:"ticket_id"`
+	Header        Header `json:"header"`
+	TicketID      string `json:"ticket_id"`
 	CustomerEmail string `json:"customer_email"`
-	Price    Money  `json:"price"`
+	Price         Money  `json:"price"`
 }
 
 type TicketBookingCanceled struct {
-	Header        Header 	`json:"header"`
-	TicketID      string      `json:"ticket_id"`
-	CustomerEmail string      `json:"customer_email"`
-	Price         Money       `json:"price"`
+	Header        Header `json:"header"`
+	TicketID      string `json:"ticket_id"`
+	CustomerEmail string `json:"customer_email"`
+	Price         Money  `json:"price"`
 }
 
 func main() {
@@ -150,18 +150,18 @@ func main() {
 		for _, ticket := range request.Tickets {
 			if ticket.Status == "canceled" {
 				canceledEvent := TicketBookingCanceled{
-					Header: NewHeader(TicketBookingConfirmedTopic),
-					TicketID: ticket.TicketID,
+					Header:        NewHeader(TicketBookingConfirmedTopic),
+					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
-					Price:    ticket.Price,
+					Price:         ticket.Price,
 				}
-	
+
 				payload, err := json.Marshal(canceledEvent)
 				if err != nil {
 					fmt.Println("Error marshaling canceledEvent:", err)
 					return err
 				}
-				
+
 				msg := message.NewMessage(watermill.NewUUID(), payload)
 				err = publisher.Publish(TicketBookingCanceledTopic, msg)
 				if err != nil {
@@ -170,18 +170,18 @@ func main() {
 				}
 			} else if ticket.Status == "confirmed" {
 				event := TicketBookingConfirmed{
-					Header: NewHeader(TicketBookingConfirmedTopic),
-					TicketID: ticket.TicketID,
+					Header:        NewHeader(TicketBookingConfirmedTopic),
+					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
-					Price:    ticket.Price,
+					Price:         ticket.Price,
 				}
-	
+
 				payload, err := json.Marshal(event)
 				if err != nil {
 					fmt.Println("Error marshaling ticketBookingConfirmed:", err)
 					return err
 				}
-				
+
 				msg := message.NewMessage(watermill.NewUUID(), payload)
 				err = publisher.Publish(TicketBookingConfirmedTopic, msg)
 				if err != nil {
@@ -200,6 +200,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	router.AddMiddleware(PubSubLoggingMiddleware)
 
 	router.AddNoPublisherHandler(
 		"issue_receipt",
@@ -293,6 +295,14 @@ func main() {
 	// Will block until all goroutines finish
 	if err = errGroup.Wait(); err != nil {
 		panic(err)
+	}
+}
+
+func PubSubLoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
+	return func(msg *message.Message) ([]*message.Message, error) {
+		logger := logrus.WithField("message_uuid", (*msg).UUID)
+		logger.Info("Handling a message")
+		return next(msg)
 	}
 }
 
