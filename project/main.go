@@ -310,13 +310,18 @@ func main() {
 }
 
 func PubSubLoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
-	return func(msg *message.Message) ([]*message.Message, error) {
+	return func(msg *message.Message) ([]*message.Message, error) {		
 		logger := log.FromContext(msg.Context())
 		logger = logger.WithField("message_uuid", (*msg).UUID)
-
-		logger.Info("Handling a message")
 		
-		return next(msg)
+		logger.Info("Handling a message")
+
+		msgs, err := next(msg)
+		if err != nil {
+			logger.WithError(err).Error("Message handling error")
+		}
+		
+		return msgs, err
 	}
 }
 
