@@ -26,6 +26,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const brokenMessageID = "2beaf5bc-d5e4-4653-b075-2b36bbf28949"
+
 type TicketsStatusRequest struct {
 	Tickets []TicketStatus `json:"tickets"`
 }
@@ -63,7 +65,7 @@ type Header struct {
 	PublishedAt time.Time `json:"published_at"`
 }
 
-func NewHeader(eventName string) Header {
+func NewHeader() Header {
 	return Header{
 		ID:          uuid.NewString(),
 		PublishedAt: time.Now().UTC(),
@@ -157,7 +159,7 @@ func main() {
 		for _, ticket := range request.Tickets {
 			if ticket.Status == "canceled" {
 				canceledEvent := TicketBookingCanceled{
-					Header:        NewHeader(TicketBookingConfirmedTopic),
+					Header:        NewHeader(),
 					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
 					Price:         ticket.Price,
@@ -171,6 +173,7 @@ func main() {
 
 				msg := message.NewMessage(watermill.NewUUID(), payload)
 				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-ID"))
+				msg.Metadata.Set("type", TicketBookingCanceledTopic)
 
 				err = publisher.Publish(TicketBookingCanceledTopic, msg)
 				if err != nil {
@@ -179,7 +182,7 @@ func main() {
 				}
 			} else if ticket.Status == "confirmed" {
 				event := TicketBookingConfirmed{
-					Header:        NewHeader(TicketBookingConfirmedTopic),
+					Header:        NewHeader(),
 					TicketID:      ticket.TicketID,
 					CustomerEmail: ticket.CustomerEmail,
 					Price:         ticket.Price,
@@ -193,6 +196,7 @@ func main() {
 
 				msg := message.NewMessage(watermill.NewUUID(), payload)
 				msg.Metadata.Set("correlation_id", c.Request().Header.Get("Correlation-ID"))
+				msg.Metadata.Set("type", TicketBookingConfirmedTopic)
 
 				err = publisher.Publish(TicketBookingConfirmedTopic, msg)
 				if err != nil {
@@ -212,8 +216,6 @@ func main() {
 		panic(err)
 	}
 	
-
-	
 	router.AddMiddleware(PropagateCorrelationIMiddleware)
 	router.AddMiddleware(PubSubLoggingMiddleware)
 	
@@ -226,12 +228,20 @@ func main() {
 			Logger:          watermillLogger,
 		}.Middleware,
 	)
-	
+
 	router.AddNoPublisherHandler(
 		"issue_receipt",
 		TicketBookingConfirmedTopic,
 		issueReceiptSub,
 		func(message *message.Message) error {
+			if message.UUID == brokenMessageID {
+				return nil
+			}
+
+			if message.Metadata.Get("type") != TicketBookingConfirmedTopic {
+				return nil
+			}
+
 			var event TicketBookingConfirmed
 			err := json.Unmarshal(message.Payload, &event)
 			if err != nil {
@@ -253,6 +263,14 @@ func main() {
 		TicketBookingConfirmedTopic,
 		appendToTrackerSub,
 		func(message *message.Message) error {
+			if message.UUID == brokenMessageID {
+				return nil
+			}
+
+			if message.Metadata.Get("type") != TicketBookingConfirmedTopic {
+				return nil
+			}
+
 			var event TicketBookingConfirmed
 			err := json.Unmarshal(message.Payload, &event)
 			if err != nil {
@@ -272,6 +290,10 @@ func main() {
 		TicketBookingCanceledTopic,
 		cancelTicketSub,
 		func(message *message.Message) error {
+			if message.Metadata.Get("type") != TicketBookingCanceledTopic {
+				return nil
+			}
+
 			var event TicketBookingCanceled
 			err := json.Unmarshal(message.Payload, &event)
 			if err != nil {
