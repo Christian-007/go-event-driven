@@ -91,7 +91,7 @@ func main() {
 
 	watermillLogger := watermill.NewStdLogger(false, false)
 
-	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"), 
+	clients, err := clients.NewClients(os.Getenv("GATEWAY_ADDR"),
 		func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Correlation-ID", log.CorrelationIDFromContext(ctx))
 			return nil
@@ -215,16 +215,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	router.AddMiddleware(PropagateCorrelationIMiddleware)
 	router.AddMiddleware(PubSubLoggingMiddleware)
-	
+
 	router.AddMiddleware(
 		middleware.Retry{
-			MaxRetries:      10, 
-			InitialInterval: time.Millisecond * 100, 
-			MaxInterval:     time.Second, 
-			Multiplier:      2, 
+			MaxRetries:      10,
+			InitialInterval: time.Millisecond * 100,
+			MaxInterval:     time.Second,
+			Multiplier:      2,
 			Logger:          watermillLogger,
 		}.Middleware,
 	)
@@ -234,10 +234,12 @@ func main() {
 		TicketBookingConfirmedTopic,
 		issueReceiptSub,
 		func(message *message.Message) error {
+			// Fixing a malformed JSON message
 			if message.UUID == brokenMessageID {
 				return nil
 			}
 
+			// Fixing an incorrect message type
 			if message.Metadata.Get("type") != TicketBookingConfirmedTopic {
 				return nil
 			}
@@ -246,6 +248,13 @@ func main() {
 			err := json.Unmarshal(message.Payload, &event)
 			if err != nil {
 				return err
+			}
+
+			// Fixing a code bug: for some events, we didn't supply the currency, which was USD by default
+			// Now some events are spinning
+			// Add this if to default to USD for these events
+			if event.Price.Currency == "" {
+				event.Price.Currency = "USD"
 			}
 
 			return receiptsClient.IssueReceipt(message.Context(), IssueReceiptRequest{
@@ -263,10 +272,12 @@ func main() {
 		TicketBookingConfirmedTopic,
 		appendToTrackerSub,
 		func(message *message.Message) error {
+			// Fixing a malformed JSON message
 			if message.UUID == brokenMessageID {
 				return nil
 			}
 
+			// Fixing an incorrect message type
 			if message.Metadata.Get("type") != TicketBookingConfirmedTopic {
 				return nil
 			}
@@ -275,6 +286,13 @@ func main() {
 			err := json.Unmarshal(message.Payload, &event)
 			if err != nil {
 				return err
+			}
+
+			// Fixing a code bug: for some events, we didn't supply the currency, which was USD by default
+			// Now some events are spinning
+			// Add this if to default to USD for these events
+			if event.Price.Currency == "" {
+				event.Price.Currency = "USD"
 			}
 
 			return spreadsheetsClient.AppendRow(
@@ -345,17 +363,17 @@ func main() {
 }
 
 func PubSubLoggingMiddleware(next message.HandlerFunc) message.HandlerFunc {
-	return func(msg *message.Message) ([]*message.Message, error) {		
+	return func(msg *message.Message) ([]*message.Message, error) {
 		logger := log.FromContext(msg.Context())
 		logger = logger.WithField("message_uuid", (*msg).UUID)
-		
+
 		logger.Info("Handling a message")
 
 		msgs, err := next(msg)
 		if err != nil {
 			logger.WithError(err).Error("Message handling error")
 		}
-		
+
 		return msgs, err
 	}
 }
