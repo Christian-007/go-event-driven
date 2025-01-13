@@ -44,12 +44,12 @@ func TestComponent(t *testing.T) {
 
 	ticket := TicketStatus{
 		TicketID: uuid.NewString(),
-		Status: "confirmed",
+		Status:   "confirmed",
 		Price: Money{
-			Amount: "50.30",
+			Amount:   "50.30",
 			Currency: "GBP",
 		},
-		Email: "email@example.com",
+		Email:     "email@example.com",
 		BookingID: uuid.NewString(),
 	}
 
@@ -57,6 +57,17 @@ func TestComponent(t *testing.T) {
 
 	assertReceiptForTicketIssued(t, receiptsService, ticket)
 	assertRowToSheetAdded(t, spreadsheetsService, ticket, "tickets-to-print")
+
+	// Ticket Cancelled tests
+	sendTicketsStatus(t, TicketsStatusRequest{Tickets: []TicketStatus{
+		{
+			TicketID: ticket.TicketID,
+			Status:   "canceled",
+			Email:    ticket.Email,
+		},
+	}})
+
+	assertRowToSheetAdded(t, spreadsheetsService, ticket, "tickets-to-refund")
 }
 
 func waitForHttpServer(t *testing.T) {
@@ -116,7 +127,7 @@ func assertReceiptForTicketIssued(t *testing.T, receiptsService *api.ReceiptsSer
 		10*time.Second,
 		100*time.Millisecond,
 	)
-	
+
 	var receipt entities.IssueReceiptRequest
 	var ok bool
 	for _, issuedReceipt := range receiptsService.IssuedReceipts {
@@ -128,7 +139,7 @@ func assertReceiptForTicketIssued(t *testing.T, receiptsService *api.ReceiptsSer
 		ok = true
 		break
 	}
-	
+
 	require.Truef(t, ok, "receipt for ticket %s not found", ticket.TicketID)
 	assert.Equal(t, ticket.TicketID, receipt.TicketID)
 	assert.Equal(t, ticket.Price.Amount, receipt.Price.Amount)
