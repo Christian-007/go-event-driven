@@ -18,5 +18,6 @@ use (
 	./09-cqrs-events/02-custom-event-name
 	./09-cqrs-events/03-handling-correlation-id
 	./09-cqrs-events/04-event-processor
+	./09-cqrs-events/05-event-handler
 	./project
 )
