@@ -3,12 +3,12 @@ package http
 import (
 	"context"
 
-	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type Handler struct {
-	publisher             message.Publisher
 	spreadsheetsAPIClient SpreadsheetsAPI
+	eventBus              *cqrs.EventBus
 }
 
 type SpreadsheetsAPI interface {

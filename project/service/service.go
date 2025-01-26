@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	stdHTTP "net/http"
 	ticketsHttp "tickets/http"
 	"tickets/message"
@@ -35,15 +36,24 @@ func New(
 	redisPublisher = message.NewRedisPublisher(redisClient, watermillLogger)
 	redisPublisher = log.CorrelationPublisherDecorator{Publisher: redisPublisher}
 
+	eventBus, err := event.NewEventBus(redisPublisher)
+	if err != nil {
+		fmt.Println("Error creating Event Bus:", err.Error())
+		panic(err)
+	}
+
+	eventsHandler := event.NewHandler(spreadsheetsService, receiptsService)
+
+	eventProcessConfig := event.NewEventProcessConfig(redisClient, watermillLogger)
+
 	watermillRouter := message.NewWatermillRouter(
-		receiptsService,
-		spreadsheetsService,
-		redisClient,
+		eventProcessConfig,
+		eventsHandler,
 		watermillLogger,
 	)
 
 	echoRouter := ticketsHttp.NewHttpRouter(
-		redisPublisher,
+		eventBus,
 		spreadsheetsService,
 	)
 
