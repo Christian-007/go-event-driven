@@ -34,6 +34,7 @@ func New(
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService event.ReceiptsService,
 ) Service {
+	ticketsRepo := db.NewTicketsRepository(dbConn)
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
 	var redisPublisher watermillMessage.Publisher
@@ -46,7 +47,11 @@ func New(
 		panic(err)
 	}
 
-	eventsHandler := event.NewHandler(spreadsheetsService, receiptsService)
+	eventsHandler := event.NewHandler(
+		spreadsheetsService,
+		receiptsService,
+		ticketsRepo,
+	)
 
 	eventProcessConfig := event.NewEventProcessConfig(redisClient, watermillLogger)
 
