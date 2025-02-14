@@ -43,4 +43,5 @@ type ReceiptsService interface {
 
 type TicketsRepository interface {
 	Add(ctx context.Context, ticket entities.Ticket) error
+	Remove(ctx context.Context, ticketId string) error
 }
