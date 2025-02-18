@@ -8,7 +8,7 @@ import (
 type Handler struct {
 	spreadsheetsService SpreadsheetsAPI
 	receiptsService     ReceiptsService
-	ticketsRepository TicketsRepository
+	ticketsRepository   TicketsRepository
 }
 
 func NewHandler(
@@ -29,7 +29,7 @@ func NewHandler(
 	return Handler{
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
-		ticketsRepository: ticketsRepository,
+		ticketsRepository:   ticketsRepository,
 	}
 }
 

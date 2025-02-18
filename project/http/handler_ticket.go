@@ -57,3 +57,12 @@ func (h Handler) PostTicketsStatus(c echo.Context) error {
 
 	return c.NoContent(http.StatusOK)
 }
+
+func (h Handler) GetAllTickets(c echo.Context) error {
+	tickets, err := h.ticketsRepository.GetAll(c.Request().Context())
+	if err != nil {
+		return fmt.Errorf("failed to find tickets: %w", err)
+	}
+
+	return c.JSON(http.StatusOK, tickets)
+}

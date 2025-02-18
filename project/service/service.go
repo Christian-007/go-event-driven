@@ -23,7 +23,7 @@ func init() {
 }
 
 type Service struct {
-	db *sqlx.DB
+	db              *sqlx.DB
 	watermillRouter *watermillMessage.Router
 	echoRouter      *echo.Echo
 }
@@ -64,6 +64,7 @@ func New(
 	echoRouter := ticketsHttp.NewHttpRouter(
 		eventBus,
 		spreadsheetsService,
+		ticketsRepo,
 	)
 
 	return Service{
