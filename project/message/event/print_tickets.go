@@ -21,5 +21,14 @@ func (h Handler) PrintTickets(ctx context.Context, event *entities.TicketBooking
 		return fmt.Errorf("failed to upload ticket file: %w", err)
 	}
 
+	err = h.eventBus.Publish(ctx, entities.TicketPrinted{
+		Header: event.Header,
+		TicketID: event.TicketID,
+		FileName: fileName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to publish TicketPrinted event: %w", err)
+	}
+
 	return nil
 }

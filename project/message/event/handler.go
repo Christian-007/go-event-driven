@@ -3,6 +3,8 @@ package event
 import (
 	"context"
 	"tickets/entities"
+
+	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type Handler struct {
@@ -10,6 +12,7 @@ type Handler struct {
 	receiptsService     ReceiptsService
 	ticketsRepository   TicketsRepository
 	fileService FileAPI
+	eventBus              *cqrs.EventBus
 }
 
 func NewHandler(
@@ -17,6 +20,7 @@ func NewHandler(
 	receiptsService ReceiptsService,
 	ticketsRepository TicketsRepository,
 	fileService FileAPI,
+	eventBus              *cqrs.EventBus,
 ) Handler {
 	if spreadsheetsService == nil {
 		panic("missing spreadsheetsService")
@@ -30,12 +34,16 @@ func NewHandler(
 	if fileService == nil {
 		panic("missing fileService")
 	}
+	if eventBus == nil {
+		panic("missing eventBus")
+	}
 
 	return Handler{
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
 		ticketsRepository:   ticketsRepository,
 		fileService: fileService,
+		eventBus: eventBus,
 	}
 }
 

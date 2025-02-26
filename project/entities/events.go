@@ -38,6 +38,12 @@ type TicketRefunded struct {
 	TicketID string      `json:"ticket_id"`
 }
 
+type TicketPrinted struct {
+	Header EventHeader `json:"header"`
+	TicketID string `json:"ticket_id"`
+	FileName string `json:"file_name"`
+}
+
 type BookingMade struct {
 	Header          EventHeader `json:"header"`
 	NumberOfTickets int         `json:"number_of_tickets"`
