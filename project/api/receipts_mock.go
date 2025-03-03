@@ -10,14 +10,14 @@ import (
 type ReceiptsServiceMock struct {
 	mock sync.Mutex
 
-	IssuedReceipts []entities.IssueReceiptRequest
+	IssuedReceipts map[string]entities.IssueReceiptRequest
 }
 
 func (r *ReceiptsServiceMock) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
 	r.mock.Lock()
 	defer r.mock.Unlock()
 
-	r.IssuedReceipts = append(r.IssuedReceipts, request)
+	r.IssuedReceipts[request.IdempotencyKey] = request
 
 	return entities.IssueReceiptResponse{
 		ReceiptNumber: "123",
