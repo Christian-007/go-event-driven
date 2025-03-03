@@ -14,6 +14,7 @@ func (h Handler) IssueReceipt(ctx context.Context, event *entities.TicketBooking
 	request := entities.IssueReceiptRequest{
 		TicketID: event.TicketID,
 		Price:    event.Price,
+		IdempotencyKey: event.Header.IdempotencyKey,
 	}
 
 	_, err := h.receiptsService.IssueReceipt(ctx, request)

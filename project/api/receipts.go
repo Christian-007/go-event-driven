@@ -25,6 +25,7 @@ func NewReceiptsServiceClient(clients *clients.Clients) *ReceiptsServiceClient {
 
 func (c ReceiptsServiceClient) IssueReceipt(ctx context.Context, request entities.IssueReceiptRequest) (entities.IssueReceiptResponse, error) {
 	resp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, receipts.CreateReceipt{
+		IdempotencyKey: &request.IdempotencyKey,
 		Price: receipts.Money{
 			MoneyAmount:   request.Price.Amount,
 			MoneyCurrency: request.Price.Currency,
