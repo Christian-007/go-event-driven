@@ -36,6 +36,7 @@ func New(
 	fileService event.FileAPI,
 ) Service {
 	ticketsRepo := db.NewTicketsRepository(dbConn)
+	showsRepo := db.NewShowsRepository(dbConn)
 	watermillLogger := log.NewWatermill(log.FromContext(context.Background()))
 
 	var redisPublisher watermillMessage.Publisher
@@ -68,6 +69,7 @@ func New(
 		eventBus,
 		spreadsheetsService,
 		ticketsRepo,
+		showsRepo,
 	)
 
 	return Service{
