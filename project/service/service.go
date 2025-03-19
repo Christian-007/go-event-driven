@@ -8,6 +8,7 @@ import (
 	ticketsHttp "tickets/http"
 	"tickets/message"
 	"tickets/message/event"
+	"tickets/message/outbox"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	watermillMessage "github.com/ThreeDotsLabs/watermill/message"
@@ -58,9 +59,12 @@ func New(
 		eventBus,
 	)
 
+	postgresSubscriber := outbox.NewPostgresSubscriber(dbConn.DB, watermillLogger)
 	eventProcessConfig := event.NewEventProcessConfig(redisClient, watermillLogger)
 
 	watermillRouter := message.NewWatermillRouter(
+		postgresSubscriber,
+		redisPublisher,
 		eventProcessConfig,
 		eventsHandler,
 		watermillLogger,
