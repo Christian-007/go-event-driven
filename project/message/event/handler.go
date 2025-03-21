@@ -5,14 +5,17 @@ import (
 	"tickets/entities"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
 	spreadsheetsService SpreadsheetsAPI
 	receiptsService     ReceiptsService
 	ticketsRepository   TicketsRepository
-	fileService FileAPI
-	eventBus              *cqrs.EventBus
+	fileService         FileAPI
+	deadNationAPI       DeadNationAPI
+	showRepository      ShowsRepository
+	eventBus            *cqrs.EventBus
 }
 
 func NewHandler(
@@ -20,7 +23,9 @@ func NewHandler(
 	receiptsService ReceiptsService,
 	ticketsRepository TicketsRepository,
 	fileService FileAPI,
-	eventBus              *cqrs.EventBus,
+	deadNationAPI DeadNationAPI,
+	showRepository ShowsRepository,
+	eventBus *cqrs.EventBus,
 ) Handler {
 	if spreadsheetsService == nil {
 		panic("missing spreadsheetsService")
@@ -34,6 +39,12 @@ func NewHandler(
 	if fileService == nil {
 		panic("missing fileService")
 	}
+	if deadNationAPI == nil {
+		panic("missing deadNationAPI")
+	}
+	if showRepository == nil {
+		panic("missing showRepository")
+	}
 	if eventBus == nil {
 		panic("missing eventBus")
 	}
@@ -42,8 +53,10 @@ func NewHandler(
 		spreadsheetsService: spreadsheetsService,
 		receiptsService:     receiptsService,
 		ticketsRepository:   ticketsRepository,
-		fileService: fileService,
-		eventBus: eventBus,
+		fileService:         fileService,
+		deadNationAPI:       deadNationAPI,
+		showRepository:      showRepository,
+		eventBus:            eventBus,
 	}
 }
 
@@ -62,4 +75,12 @@ type TicketsRepository interface {
 
 type FileAPI interface {
 	UploadFile(ctx context.Context, fileID string, fileContent string) error
+}
+
+type DeadNationAPI interface {
+	BookInDeadNation(ctx context.Context, request entities.DeadNationBooking) error
+}
+
+type ShowsRepository interface {
+	GetOne(ctx context.Context, showId uuid.UUID) (entities.Show, error)
 }

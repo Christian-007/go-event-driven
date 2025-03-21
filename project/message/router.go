@@ -20,7 +20,6 @@ func NewWatermillRouter(postgresSubscriber message.Subscriber, publisher message
 
 	outbox.AddForwarderHandler(postgresSubscriber, publisher, router, watermillLogger)
 
-
 	ep, err := cqrs.NewEventProcessorWithConfig(
 		router,
 		eventProcessorConfig,
@@ -54,6 +53,10 @@ func NewWatermillRouter(postgresSubscriber message.Subscriber, publisher message
 		cqrs.NewEventHandler(
 			"PrintTicketHandler",
 			eventHandler.PrintTickets,
+		),
+		cqrs.NewEventHandler(
+			"BookPlaceInDeadNation",
+			eventHandler.BookPlaceInDeadNation,
 		),
 	)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"tickets/entities"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -36,4 +37,34 @@ func (s ShowsRepository) Add(ctx context.Context, show entities.Show) error {
 	}
 
 	return nil
+}
+
+func (s ShowsRepository) GetOne(ctx context.Context, showId uuid.UUID) (entities.Show, error) {
+	var result entities.Show
+
+	err := s.db.GetContext(
+		ctx,
+		&result,
+		`
+			SELECT
+				id,
+				dead_nation_id,
+				number_of_tickets,
+				start_time,
+				title,
+				venue
+			FROM
+				shows
+			WHERE
+				id = $1
+		`,
+		showId,
+	)
+
+	if err != nil {
+		return entities.Show{}, err
+	}
+
+	return result, nil
+
 }

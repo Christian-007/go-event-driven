@@ -30,7 +30,7 @@ func TestComponent(t *testing.T) {
 		panic(err)
 	}
 	defer db.Close()
-	
+
 	redisClient := message.NewRedisClient(os.Getenv("REDIS_ADDR"))
 	defer redisClient.Close()
 
@@ -40,6 +40,7 @@ func TestComponent(t *testing.T) {
 	spreadsheetsService := &api.SpreadsheetsAPIMock{}
 	receiptsService := &api.ReceiptsServiceMock{IssuedReceipts: map[string]entities.IssueReceiptRequest{}}
 	fileService := &api.FileServiceMock{}
+	bookingService := &api.DeadNationMock{}
 
 	go func() {
 		svc := service.New(
@@ -48,6 +49,7 @@ func TestComponent(t *testing.T) {
 			spreadsheetsService,
 			receiptsService,
 			fileService,
+			bookingService,
 		)
 
 		assert.NoError(t, svc.Run(ctx))
@@ -69,7 +71,7 @@ func TestComponent(t *testing.T) {
 	idempotencyKey := uuid.NewString()
 
 	// Check for idempotency
-	for i:=0; i<3; i++ {
+	for i := 0; i < 3; i++ {
 		sendTicketsStatus(t, TicketsStatusRequest{Tickets: []TicketStatus{ticket}}, idempotencyKey)
 	}
 
@@ -171,7 +173,7 @@ func assertTicketsPrinted(t *testing.T, filesAPI *api.FileServiceMock, ticket Ti
 		}
 
 		assert.Contains(t, content, ticket.TicketID)
-	}, 10*time.Second, 100*time.Millisecond,)
+	}, 10*time.Second, 100*time.Millisecond)
 }
 
 func assertReceiptForTicketIssued(t *testing.T, receiptsService *api.ReceiptsServiceMock, ticket TicketStatus) {

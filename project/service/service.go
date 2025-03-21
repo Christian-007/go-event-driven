@@ -35,6 +35,7 @@ func New(
 	spreadsheetsService event.SpreadsheetsAPI,
 	receiptsService event.ReceiptsService,
 	fileService event.FileAPI,
+	deadNationAPI event.DeadNationAPI,
 ) Service {
 	ticketsRepo := db.NewTicketsRepository(dbConn)
 	showsRepo := db.NewShowsRepository(dbConn)
@@ -56,6 +57,8 @@ func New(
 		receiptsService,
 		ticketsRepo,
 		fileService,
+		deadNationAPI,
+		showsRepo,
 		eventBus,
 	)
 

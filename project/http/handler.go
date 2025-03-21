@@ -5,6 +5,7 @@ import (
 	"tickets/entities"
 
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -25,6 +26,7 @@ type TicketsRepository interface {
 
 type ShowsRepository interface {
 	Add(ctx context.Context, show entities.Show) error
+	GetOne(ctx context.Context, showId uuid.UUID) (entities.Show, error)
 }
 
 type BookingsRepository interface {
