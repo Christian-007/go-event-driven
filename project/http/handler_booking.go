@@ -1,7 +1,9 @@
 package http
 
 import (
+	"errors"
 	"net/http"
+	"tickets/db"
 	"tickets/entities"
 
 	"github.com/google/uuid"
@@ -35,7 +37,12 @@ func (h Handler) PostBookTickets(c echo.Context) error {
 		NumberOfTickets: request.NumberOfTickets,
 		CustomerEmail:   request.CustomerEmail,
 	}
-	if err = h.bookingsRepository.Add(c.Request().Context(), booking); err != nil {
+	err = h.bookingsRepository.Add(c.Request().Context(), booking);
+	if err != nil {
+		if errors.Is(err, db.ErrExceedingTicketLimit) {
+			return echo.NewHTTPError(http.StatusBadRequest, "not enough seats available")
+		}
+
 		return err
 	}
 

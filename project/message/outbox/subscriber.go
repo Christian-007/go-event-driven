@@ -1,10 +1,12 @@
 package outbox
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/ThreeDotsLabs/go-event-driven/common/log"
 	"github.com/ThreeDotsLabs/watermill"
 	watermillSQL "github.com/ThreeDotsLabs/watermill-sql/v2/pkg/sql"
 )
@@ -25,4 +27,9 @@ func NewPostgresSubscriber(db *sql.DB, logger watermill.LoggerAdapter) *watermil
 	}
 
 	return sub
+}
+
+func InitializeSchema(db *sql.DB) error {
+	sqlSub := NewPostgresSubscriber(db, log.NewWatermill(log.FromContext(context.Background())))
+	return sqlSub.SubscribeInitialize(outboxTopic)
 }
